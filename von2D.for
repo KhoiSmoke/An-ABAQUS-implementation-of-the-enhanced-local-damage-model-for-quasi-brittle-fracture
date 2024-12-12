@@ -22,18 +22,18 @@ C-----------------------------------------------------------------------
 
     DOUBLE PRECISION CC(NTENS,NTENS), delta(NTENS),
      $ II1, JJ2, II1_d(NTENS), JJ2_d(NTENS), NODEE(1),
-     $ AA, e_tilde1, kappa, kappa_n, omega, ee, gg, coeff_omega, coeff_ee(NTENS),
+     $ AA, e_tilde1, kappa, kappa_n, damage, ee, gg, coeff_damage, coeff_ee(NTENS),
      $ a1, a2, a4(NTENS), Betaa(1), ELEM_COORDS(2,4),
      $ STRESS_EQ(NTENS), CCC(4,4), X(4), Y(4),
      $ dk_dee(1)
 
 C   MATERIAL PROPERTIES
-    DOUBLE PRECISION E, NU, k, kappa_o
+    DOUBLE PRECISION E, NU, k, kappa_o, ft, Gf
 
 C   PARAMETERS AND CONSTANTS
     INTEGER i, j, a, b
     PARAMETER(Zero=0d0, One=1.0d0, Two=2.0d0, Three=3.0d0,
-     $ Six=6.0d0, TOL=1d-25, Alpha=1.0d0, Beta=305.0d0, Ne=3576.0d0,
+     $ Six=6.0d0, TOL=1d-25, Alpha=1.0d0, Ne=3576.0d0,
      $ Eta=5.0d0)
 
 C-----------------------------------------------------------------------
@@ -43,7 +43,8 @@ C-----------------------------------------------------------------------
     NU = PROPS(2)         ! Poisson's ratio
     k = PROPS(3)          ! Ratio f_t/f_c
     kappa_o = PROPS(4)    ! Damage initiation threshold
-
+    ft = 2.70d0
+    Gf = 0.095d0
 C-----------------------------------------------------------------------
 C   INITIALIZATION
 C-----------------------------------------------------------------------
@@ -119,11 +120,11 @@ C-----------------------------------------------------------------------
 C   DAMAGE VARIABLE AND DERIVATIVES
 C-----------------------------------------------------------------------
     NODEE = CELENT
-    Betaa = E * kappa_o * NODEE / (64.0d0 / 1000.0d0)
-    omega = One - (kappa_o / kappa) * ((One - Alpha) +
+    Betaa = E * kappa_o * NODEE / (Gf - 0.5d0 * kappa_0 * ft * NODEE)
+    damage = One - (kappa_o / kappa) * ((One - Alpha) +
      $        Alpha * EXP(-Betaa(1) * (kappa - kappa_o)))
 
-    coeff_omega = (kappa_o / (kappa**Two)) * (One - Alpha +
+    coeff_damage = (kappa_o / (kappa**Two)) * (One - Alpha +
      $        Alpha * EXP(-Betaa(1) * (kappa - kappa_o))) +
      $        (kappa_o / kappa) * (Alpha * EXP(-Betaa(1) * (kappa - kappa_o))
      $        * Betaa(1))
@@ -136,7 +137,7 @@ C-----------------------------------------------------------------------
     DO i = 1, NTENS
         DO j = 1, NTENS
             STRESS_EQ(i) = STRESS_EQ(i) + CC(i, j) * STRAN(j)
-            STRESS(i) = (One - omega) * STRESS_EQ(i)
+            STRESS(i) = (One - damage) * STRESS_EQ(i)
         END DO
     END DO
 
@@ -152,15 +153,15 @@ C-----------------------------------------------------------------------
 
     DO i = 1, NTENS
         DO j = 1, NTENS
-            DDSDDE(i, j) = (One - omega) * CC(i, j) -
-     $                     coeff_omega * dk_dee(1) * CCC(i, j)
+            DDSDDE(i, j) = (One - damage) * CC(i, j) -
+     $                     coeff_damage * dk_dee(1) * CCC(i, j)
         END DO
     END DO
 
 C-----------------------------------------------------------------------
 C   STORE STATE VARIABLES
 C-----------------------------------------------------------------------
-    STATEV(2) = omega
-    STATEV(3) = coeff_omega
+    STATEV(2) = damage
+    STATEV(3) = coeff_damage
     RETURN
 END SUBROUTINE UMAT
